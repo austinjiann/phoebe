@@ -41,7 +41,6 @@ export function RunDetailPageClient({ runId }: { runId: string }) {
   return (
     <>
       <PageHeader
-        kicker="Run detail"
         title={`Run ${runId}`}
         subtitle="Inspect current state, event output, and expected artifacts for one active attempt."
         stats={stats}
@@ -56,7 +55,7 @@ export function RunDetailPageClient({ runId }: { runId: string }) {
               subtitle="These controls call the frontend API helpers and optimistically refresh local state."
               action={<StatusBadge status={run.status} />}
             />
-            <div className="list-stack">
+            <div className="grid gap-3">
               <div className="activity-row">
                 <strong>Ticket</strong>
                 <p className="helper-copy">{run.ticketId}</p>

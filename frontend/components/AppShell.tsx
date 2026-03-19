@@ -32,16 +32,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-mark">
-            <RocketIcon />
-            <span>phoebe-agent</span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2.5 text-[1.7rem] font-extrabold">
+            <span>agent lue</span>
           </div>
-          <span className="brand-badge">MVP</span>
         </div>
         <ScrollArea.Root type="auto" style={{ flex: 1, minHeight: 0 }}>
           <ScrollArea.Viewport>
-            <nav className="sidebar-group">
+            <nav className="grid gap-2">
               {primaryLinks.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
@@ -61,10 +59,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <div className="sidebar-footer-card">
               <p className="eyebrow">Workspace</p>
-              <strong>Parallel agent control</strong>
+              <strong>Parallel Agent Control</strong>
               <p>
-                Assign Linear tickets to focused agent lanes, then track active runs and artifacts
-                from one shell.
+                Assign linear tasks to Lue and she will create PR's for you
               </p>
             </div>
             <Separator.Root
@@ -72,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               orientation="horizontal"
               style={{ height: 1, background: "var(--line)", margin: "18px 0" }}
             />
-            <nav className="sidebar-group">
+            <nav className="grid gap-2">
               {utilityLinks.map(({ href, label, icon: Icon }) => (
                 <Link key={label} href={href} className="sidebar-link" data-active="false">
                   <Icon />

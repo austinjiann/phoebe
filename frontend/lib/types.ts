@@ -33,8 +33,6 @@ export type AgentAssignmentState = Partial<Record<string, AgentId>>;
 export type AgentSlot = {
   id: AgentId;
   name: string;
-  label: string;
-  description: string;
 };
 
 export type DashboardStats = {
@@ -58,25 +56,17 @@ export const AGENT_SLOTS: AgentSlot[] = [
   {
     id: "agent-1",
     name: "Agent 1",
-    label: "Triage",
-    description: "Fast cleanup, reproduction, and ticket framing.",
   },
   {
     id: "agent-2",
     name: "Agent 2",
-    label: "Execution",
-    description: "Primary coding lane for current Linear work.",
   },
   {
     id: "agent-3",
     name: "Agent 3",
-    label: "Validation",
-    description: "Follow-up checks, QA, and artifact review.",
   },
   {
     id: "agent-4",
     name: "Agent 4",
-    label: "Overflow",
-    description: "Extra parallel capacity for spikes.",
   },
 ];

@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import { launchSandbox } from "../services/modal/launchSandbox";
+import { cancelSandboxRun, launchSandbox } from "../services/modal/launchSandbox";
 import { appendEvent } from "../services/runs/appendEvent";
 import { createRun } from "../services/runs/createRun";
 import { getRun } from "../services/runs/getRun";
@@ -91,6 +91,7 @@ export function registerRunRoutes(app: Hono) {
         return c.json(existingRun.status);
       }
 
+      await cancelSandboxRun(runId).catch(() => false);
       const canceledRun = await updateRun(runId, {
         status: "canceled",
         canceledAt: new Date().toISOString(),

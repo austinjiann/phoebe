@@ -2,49 +2,52 @@
 
 ## 1. Executive summary
 
-Strip this down to a single-server MVP.
+Build the MVP as a small two-process app:
 
-- Next.js provides both the dashboard and the API routes.
-- Linear is intake only.
-- A ticket is not a run.
-- A run is one active attempt on one ticket.
-- Launching a run starts one Modal sandbox.
-- Inside the sandbox, OpenCode uses Anthropic API keys to run Claude.
-- The sandbox works on one test repo, writes artifacts to a run folder, pushes a branch, and can create a draft PR.
-- The dashboard only needs to show the active run, its logs, its artifacts, and the PR link.
+- `frontend/` is the Next.js UI
+- `backend/` is a Bun + Hono API
+- `backend/runs/` holds all file-backed run state
+- Modal provides one remote sandbox per run
 
-Do not build any platform infrastructure around this.
+Keep the current rollout narrow.
 
+- Linear is intake only
+- ticket != run
+- one active run per ticket is enough
+- no database
 - no Cloudflare
 - no Durable Objects
-- no database
 - no long-term history
-- no multi-agent orchestration
-- no multi-tenant support
 
-The durable output for the MVP is GitHub:
+Current execution milestone:
 
-- branch
-- draft PR
-- PR summary and evidence
+- `POST /runs` creates local run files
+- backend launches a real Modal smoke run
+- the Modal job clones the single test repo and runs simple git checks
+- backend writes `summary.md`, `test-results.json`, and `test-output.txt`
 
-Everything else is temporary file-backed runtime state.
+OpenCode + Anthropic is still the intended runtime, but it is the next step after Modal transport is proven.
 
 ## 2. Simplified architecture
 
 ```text
 +------------------+        +---------------------------+        +---------------------------+
-| Linear           | -----> | Next.js app              | -----> | Modal sandbox             |
-| source of work   |        | dashboard + API routes   |        | OpenCode + Claude         |
-+------------------+        +-------------+-------------+        +-------------+-------------+
-                                           |                                  |
-                                           |                                  |
-                                           v                                  v
-                                +----------------------+          +---------------------------+
-                                | local run folders    |          | GitHub                    |
-                                | status + logs +      |          | branch + draft PR         |
-                                | artifacts            |          | durable output            |
-                                +----------------------+          +---------------------------+
+| Linear           | -----> | frontend/                 | -----> | backend/                  |
+| intake only      |        | Next.js dashboard         |        | Bun + Hono REST API       |
++------------------+        +---------------------------+        +-------------+-------------+
+                                                                         |
+                                                                         v
+                                                            +---------------------------+
+                                                            | Modal smoke runner        |
+                                                            | clone repo + git checks   |
+                                                            +-------------+-------------+
+                                                                          |
+                                                                          v
+                                                            +---------------------------+
+                                                            | backend/runs/             |
+                                                            | status + events +         |
+                                                            | summary + test output     |
+                                                            +---------------------------+
 ```
 
 ```text
@@ -52,112 +55,106 @@ Linear ticket
     ->
 Launch button
     ->
-Next.js API route
+POST /runs
     ->
-create run folder
+backend/runs/{ticketId}/{runId}
     ->
-start Modal sandbox
+Modal sandbox
     ->
-OpenCode inspects repo, edits code, runs tests, takes screenshots
+clone test repo
     ->
-write artifacts into run folder
+run smoke commands
     ->
-push branch / create draft PR
+write local artifacts
+    ->
+replace smoke runner with OpenCode next
 ```
-
-Core rules:
-
-- fetch tickets directly from Linear when needed
-- keep only one active run per ticket
-- keep runtime state in files, not a database
-- use simple JSON and markdown outputs
-- treat screenshots and test results as first-class outputs
 
 ## 3. What to keep
 
-Keep these ideas from the earlier plan:
+Keep these rules:
 
 - Linear is only the intake layer
 - ticket != run
-- OpenCode is the coding runtime
-- Anthropic powers Claude through OpenCode
-- Modal provides one sandbox per run
+- one Modal environment per run
 - one test repo only
-- one active run per ticket is enough
-- screenshots, test results, changed files, and final summary are first-class outputs
-- draft PR creation is in scope
+- one active run per ticket
 - human stays in the loop before merge
 
-Keep the runtime simple:
+Keep these outputs first-class:
 
-- OpenCode runs inside the sandbox
-- Playwright is available in the sandbox for screenshots when relevant
-- GitHub stores the durable result
+- `summary.md`
+- `test-results.json`
+- `test-output.txt`
+- `screenshots/` once browser work is added
+- `changed-files.json` once OpenCode edits code
+- draft PR metadata once GitHub output is wired
+
+Keep OpenCode as the target runtime choice:
+
+- OpenCode inside Modal
+- Anthropic API key passed to OpenCode
+- GitHub as the durable output
+
+But do not start with that. Prove Modal clone + shell execution first.
 
 ## 4. What to remove
 
-Remove all of this from the plan:
+Do not reintroduce any of this:
 
-- Cloudflare Workers
+- database-backed state
+- Cloudflare-specific architecture
 - Durable Objects
-- D1
-- R2
-- Postgres
-- Redis
-- any database-backed state
-- session as a core concept
-- persistent event stores
-- artifact metadata tables
-- run history tables
+- session as a required core concept
+- event sourcing language tied to persistence
+- WebSockets or SSE for MVP
+- long-term run history
 - analytics
-- multiplayer or multi-client collaboration
-- platform architecture language
+- multiplayer collaboration
+- multi-repo abstractions
 - OpenRouter
-- generic multi-repo design
 
-Replace with:
+Use only:
 
-- Next.js API routes
-- local file-backed run folders
-- in-memory tracking for active runs only
+- REST from frontend to backend
+- GraphQL from backend to Linear
+- file-backed run state under `backend/runs`
+- one in-memory map for active Modal processes
 
 ## 5. Minimal runtime state
 
-Use one run folder per active or recent run:
+Store each run under:
 
 ```text
-runs/{ticketId}/{runId}/
+backend/runs/{ticketId}/{runId}/
 ```
 
-Required files:
+Current required files:
 
-- `runs/{ticketId}/{runId}/status.json`
-- `runs/{ticketId}/{runId}/events.jsonl`
-- `runs/{ticketId}/{runId}/summary.md`
-- `runs/{ticketId}/{runId}/changed-files.json`
-- `runs/{ticketId}/{runId}/test-results.json`
-- `runs/{ticketId}/{runId}/test-output.txt`
-- `runs/{ticketId}/{runId}/screenshots/`
+- `backend/runs/{ticketId}/{runId}/status.json`
+- `backend/runs/{ticketId}/{runId}/events.jsonl`
+- `backend/runs/{ticketId}/{runId}/summary.md`
+- `backend/runs/{ticketId}/{runId}/test-results.json`
+- `backend/runs/{ticketId}/{runId}/test-output.txt`
+- `backend/runs/{ticketId}/{runId}/screenshots/`
 
-Optional helper files:
+Later files, but not required for the current smoke step:
 
-- `runs/{ticketId}/active-run.json`
-- `runs/{ticketId}/{runId}/pr.json`
-- `runs/{ticketId}/{runId}/sandbox.json`
+- `backend/runs/{ticketId}/{runId}/changed-files.json`
+- `backend/runs/{ticketId}/{runId}/pr.json`
 
 Recommended `status.json` shape:
 
 ```json
 {
-  "ticketId": "ENG-123",
-  "runId": "run_20260319_103000",
+  "runId": "run_20260319_154217_tdy63q",
+  "ticketId": "TES-5",
   "status": "running",
-  "stage": "testing",
-  "startedAt": "2026-03-19T10:30:00Z",
-  "updatedAt": "2026-03-19T10:42:00Z",
-  "sandboxId": "sb-123",
-  "branchName": "eng-123/mvp-fix",
-  "prUrl": null,
+  "createdAt": "2026-03-19T15:42:17.804Z",
+  "updatedAt": "2026-03-19T15:42:18.809Z",
+  "sandboxId": "modal-run:run_20260319_154217_tdy63q",
+  "canceledAt": null,
+  "completedAt": null,
   "error": null
 }
 ```
@@ -165,185 +162,151 @@ Recommended `status.json` shape:
 Recommended `events.jsonl` shape:
 
 ```json
-{"ts":"2026-03-19T10:30:01Z","type":"run.started","message":"Run launched"}
-{"ts":"2026-03-19T10:30:20Z","type":"sandbox.ready","message":"Sandbox is ready"}
-{"ts":"2026-03-19T10:35:10Z","type":"tests.completed","message":"3 test commands completed"}
-{"ts":"2026-03-19T10:40:45Z","type":"pr.created","message":"Draft PR created"}
+{"ts":"2026-03-19T15:42:17.805Z","type":"run.started","message":"Run created"}
+{"ts":"2026-03-19T15:42:17.806Z","type":"sandbox.starting","message":"Launching Modal smoke run"}
+{"ts":"2026-03-19T15:42:18.100Z","type":"sandbox.ready","message":"Modal run started"}
+{"ts":"2026-03-19T15:42:21.500Z","type":"tests.passed","message":"Modal smoke checks passed"}
 ```
 
-Use in-memory state only for live control:
+In-memory state is allowed only for live control:
 
-- map `ticketId -> active run handle`
-- store Modal sandbox id and cancel handle in memory
-- assume cancel only works while the Next.js server process is alive
+- `runId -> child process handle` for `modal run`
+- used only for best-effort cancel
 
-That is acceptable for tonight’s MVP.
+If the backend restarts, that live control is gone. That is acceptable for the MVP.
 
 ## 6. End-to-end flow
 
-1. The dashboard calls Linear and renders the ticket list.
-2. The user clicks `Launch` on a ticket.
-3. Next.js creates a new run id and a local run folder.
-4. Next.js writes initial `status.json` and appends `run.started` to `events.jsonl`.
-5. Next.js starts a Modal sandbox for the single test repo.
-6. The sandbox boots OpenCode with Anthropic API keys and the repo mounted or cloned.
-7. OpenCode inspects the repo, edits files, runs tests, and decides whether screenshots are needed.
-8. The sandbox writes artifacts into the run folder or streams them back so Next.js writes them into the run folder.
-9. Next.js updates `status.json` and appends simple event lines as the run progresses.
-10. If the run succeeds, GitHub gets a branch and optionally a draft PR.
-11. The dashboard reads the run folder and shows logs, screenshots, test output, changed files, summary, and PR link.
-12. If the user clicks `Retry`, create a new run folder and start a fresh sandbox.
-13. If the user clicks `Cancel`, terminate the Modal sandbox and mark the run canceled.
+Current flow:
 
-MVP rule:
+1. frontend fetches tickets through `GET /linear/issues`
+2. user clicks `Launch`
+3. backend creates `backend/runs/{ticketId}/{runId}`
+4. backend writes `status.json` and appends `run.started`
+5. backend launches `modal run modal/sandbox.py::run_smoke`
+6. Modal creates a remote container
+7. the remote job clones `TEST_REPO_URL`
+8. the remote job runs:
+   - `git rev-parse --abbrev-ref HEAD`
+   - `git status --short`
+9. the remote job returns a JSON result
+10. backend writes local artifacts and marks the run `completed` or `failed`
 
-- no attempt to preserve or query historical runs beyond whatever folders still exist locally
+Next flow after this milestone:
+
+1. keep the same backend contract
+2. replace the smoke commands with OpenCode
+3. have OpenCode inspect the repo, edit files, and run repo tests
+4. add `changed-files.json`
+5. add screenshots when relevant
+6. add branch push and draft PR creation
 
 ## 7. Artifacts layout
 
-Keep the artifacts flat and obvious.
+Current artifact layout:
 
 ```text
-runs/
+backend/runs/
   {ticketId}/
-    active-run.json
     {runId}/
       status.json
       events.jsonl
       summary.md
-      changed-files.json
       test-results.json
       test-output.txt
-      pr.json
       screenshots/
-        01-homepage.png
-        02-settings.png
 ```
 
-Artifact expectations:
+Current smoke-run expectations:
 
 - `summary.md`
-  - short human summary of what changed
-  - intended for dashboard display and PR body reuse
-
-- `changed-files.json`
-  - changed file paths
-  - diff stats
-  - optional short notes per file
+  - short human summary of what the Modal smoke run did
+  - states clearly that OpenCode has not started yet
 
 - `test-results.json`
-  - list of commands run
-  - pass or fail per command
-  - short summary
+  - summary counts
+  - one entry for `git clone`
+  - one entry for each smoke command
 
 - `test-output.txt`
-  - raw combined test output
+  - combined command output from clone and smoke commands
 
-- `screenshots/`
-  - PNG files only for MVP
-  - present only when relevant
+Later additions:
 
-- `pr.json`
-  - branch name
-  - PR URL
-  - PR number if created
-
-Recommended `changed-files.json` shape:
-
-```json
-{
-  "baseBranch": "main",
-  "headBranch": "eng-123/mvp-fix",
-  "files": [
-    {"path":"src/app/page.tsx","additions":12,"deletions":4},
-    {"path":"src/lib/utils.ts","additions":5,"deletions":1}
-  ]
-}
-```
-
-Recommended `test-results.json` shape:
-
-```json
-{
-  "summary": {"passed": 2, "failed": 0},
-  "commands": [
-    {"command":"pnpm test","status":"passed"},
-    {"command":"pnpm lint","status":"passed"}
-  ]
-}
-```
+- `changed-files.json` after OpenCode edits code
+- `screenshots/*.png` after Playwright/browser steps
+- `pr.json` after GitHub draft PR creation
 
 ## 8. Minimal dashboard
 
-Only build four screens or panels.
+Do not expand the UI beyond the essentials.
 
 ### Linear ticket list
 
-- fetch tickets directly from Linear
-- show identifier, title, state, assignee
-- show `Launch` button
-- if a ticket has an active run folder, show `View run`
+- fetch tickets from backend
+- show identifier, title, state
+- show `Launch`
+- show `View run` when a run is active or recent
 
 ### Active run detail page
 
 - current status
-- current stage
-- live log output from `events.jsonl`
-- branch name
-- PR link when available
+- event timeline from `events.jsonl`
+- artifact list
+- branch or PR fields later when GitHub is added
 
 ### Artifact viewer
 
 - summary markdown
-- changed files
 - test results
 - raw test output
-- screenshots gallery
+- screenshots later
 
 ### Controls
 
 - `Launch`
 - `Retry`
 - `Cancel`
-- `Create Draft PR`
-
-Nothing else is required for MVP.
+- `Create Draft PR` later
 
 ## 9. Build order for a few-hours MVP
 
-### Step 1: basic Next.js shell
+### Step 1: backend run files
 
-- ticket list page
-- run detail page
-- API routes skeleton
+- create runs
+- append events
+- read run state back
+
+Status: done
 
 ### Step 2: Linear intake
 
-- fetch tickets from Linear GraphQL
-- render ticket list
-- no caching beyond in-memory request handling
+- fetch issues directly from Linear GraphQL
+- no caching
 
-### Step 3: run folder lifecycle
+Status: done
 
-- generate `runId`
-- create `runs/{ticketId}/{runId}`
-- write `status.json`
-- append `events.jsonl`
-- read files back for the run detail page
+### Step 3: real Modal smoke path
 
-### Step 4: Modal launch
+- replace fake executor
+- launch a real Modal job
+- clone the test repo
+- run deterministic git checks
+- write local artifacts from the returned result
 
-- create one sandbox per run
-- pass Anthropic key and GitHub credentials into the sandbox
-- start OpenCode against the test repo
+Status: implemented in the backend
 
-### Step 5: artifact writing
+### Step 4: OpenCode in Modal
 
-- write `summary.md`
-- write `changed-files.json`
-- write `test-results.json`
-- write `test-output.txt`
-- save screenshots into `screenshots/`
+- pass Anthropic key into the sandbox
+- invoke OpenCode instead of smoke commands
+- keep the same backend API and run-folder layout
+
+### Step 5: richer artifacts
+
+- `changed-files.json`
+- screenshots
+- better test command capture
 
 ### Step 6: GitHub output
 
@@ -352,104 +315,85 @@ Nothing else is required for MVP.
 - create draft PR
 - write `pr.json`
 
-### Step 7: controls
+If time is tight, do not cut:
 
-- retry creates a new run
-- cancel terminates the sandbox and updates `status.json`
-
-If time is tight, cut in this order:
-
-1. screenshots
-2. cancel
-3. create draft PR button separate from launch
-
-Do not cut:
-
-- Launch
-- test output
-- changed files
+- real Modal launch
 - summary
+- test results
+- test output
+
+Cut later instead:
+
+- screenshots
+- PR creation
+- richer artifact metadata
 
 ## 10. Folder structure
 
 ```text
-/
-├── plan.md
-├── package.json
-├── runs/
-│   └── {ticketId}/
-│       └── {runId}/
-├── src/
-│   ├── app/
-│   │   ├── page.tsx
-│   │   ├── tickets/
-│   │   │   └── page.tsx
-│   │   ├── runs/
-│   │   │   └── [ticketId]/
-│   │   │       └── [runId]/
-│   │   │           └── page.tsx
-│   │   └── api/
-│   │       ├── linear/
-│   │       │   └── tickets/route.ts
-│   │       ├── runs/
-│   │       │   ├── launch/route.ts
-│   │       │   ├── cancel/route.ts
-│   │       │   ├── retry/route.ts
-│   │       │   ├── create-pr/route.ts
-│   │       │   └── [ticketId]/
-│   │       │       └── [runId]/
-│   │       │           ├── route.ts
-│   │       │           └── artifacts/route.ts
-│   ├── components/
-│   │   ├── TicketList.tsx
-│   │   ├── RunHeader.tsx
-│   │   ├── RunLogs.tsx
-│   │   ├── ArtifactViewer.tsx
-│   │   └── RunControls.tsx
-│   └── lib/
-│       ├── linear.ts
-│       ├── github.ts
-│       ├── modal.ts
-│       ├── runs.ts
-│       ├── artifacts.ts
-│       └── opencode.ts
+phoebe/
+├── frontend/
+│   └── ...
+├── backend/
+│   ├── index.ts
+│   ├── package.json
+│   ├── routes/
+│   │   ├── linear.ts
+│   │   └── runs.ts
+│   ├── services/
+│   │   ├── linear/client.ts
+│   │   ├── modal/launchSandbox.ts
+│   │   └── runs/
+│   │       ├── appendEvent.ts
+│   │       ├── createRun.ts
+│   │       ├── getRun.ts
+│   │       └── updateRun.ts
+│   ├── utils/
+│   │   ├── ids.ts
+│   │   └── paths.ts
+│   └── runs/
+│       └── {ticketId}/{runId}/
 ├── modal/
-│   ├── app.py
-│   ├── sandbox_runner.py
-│   └── artifact_helpers.py
-└── scripts/
-    ├── sandbox-entry.sh
-    └── collect-artifacts.sh
+│   ├── sandbox.py
+│   ├── requirements.txt
+│   ├── agent/
+│   │   ├── __init__.py
+│   │   ├── run.py
+│   │   ├── tools.py
+│   │   └── config.py
+│   └── artifacts/
+│       └── collector.py
+├── config/
+│   └── repo.ts
+└── plan.md
 ```
 
 Boundary rules:
 
-- `src/app/api/*` orchestrates runs
-- `src/lib/runs.ts` owns local file-backed run state
-- `modal/*` owns sandbox startup and execution
-- `scripts/*` contains shell steps run inside the sandbox
+- `frontend/` is UI only
+- `backend/` owns API and file-backed run state
+- `modal/` owns remote execution code
+- `config/repo.ts` owns the single test repo config
 
 ## 11. Risks
 
-- local file-backed state means this should run on one machine or one long-lived server process, not a scaled serverless deployment
-- cancel is fragile if the Next.js process restarts and loses in-memory handles
-- no database means no robust run recovery after a crash
-- no persistent history means old runs may disappear unless their folders remain on disk
-- screenshot capture can be flaky if the test repo environment is unstable
-- Modal startup time may dominate the demo if the sandbox image is cold
-- direct Linear fetches are simple, but repeated page loads will hit Linear every time
+- `backend/runs/` is local machine state, so this is not horizontally scalable
+- cancel is best-effort only while the backend process is alive
+- Modal auth and cold start time can dominate the first run experience
+- if the repo is private, clone depends on the GitHub token path being valid
+- there is no run recovery after a backend crash
+- there is no durable history outside the files that remain on disk
 
-These are acceptable tradeoffs for a few-hours MVP.
+These are acceptable tradeoffs for the MVP.
 
 ## 12. Nice-to-haves later
 
-- lightweight persistence for old runs if the prototype proves useful
-- a tiny cache for Linear tickets
-- better cancel and resume handling
-- PR body templating from `summary.md`, `test-results.json`, and screenshots
-- a cleaner streaming log transport than polling `events.jsonl`
-- support for more than one repo
-- simple auth if someone besides you will use it
-- optional webhook-based ticket refresh
+- swap the smoke runner for OpenCode + Anthropic
+- add repo-specific test commands
+- add `changed-files.json`
+- add screenshot capture and viewer support
+- add GitHub branch push and draft PR creation
+- add a cleaner live log stream than polling
+- add lightweight persistence if the prototype proves useful
 
-Do not build these first.
+Do not build those before the Modal smoke path is stable.

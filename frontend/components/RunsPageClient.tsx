@@ -26,7 +26,6 @@ export function RunsPageClient() {
   return (
     <>
       <PageHeader
-        kicker="Run operations"
         title="Current runs"
         subtitle="A lightweight run board for active work only, aligned with the MVP runtime model."
         stats={stats}

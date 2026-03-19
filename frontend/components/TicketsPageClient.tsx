@@ -43,7 +43,6 @@ export function TicketsPageClient() {
   return (
     <>
       <PageHeader
-        kicker="Linear intake"
         title="Ticket control board"
         subtitle="Assign work to agent slots first, then launch parallel runs from the same queue."
         stats={stats}

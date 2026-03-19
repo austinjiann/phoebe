@@ -4,3 +4,5 @@ node_modules/
 runs/*
 !runs/.gitkeep
 backend/runs/
+__pycache__/
+*.pyc

@@ -13,7 +13,6 @@ export function AgentsPageClient() {
   return (
     <>
       <PageHeader
-        kicker="Parallel execution"
         title="Agent lanes"
         subtitle="This view groups the current Linear queue into dedicated agent slots held in local session state."
         stats={stats}

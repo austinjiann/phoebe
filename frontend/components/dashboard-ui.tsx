@@ -6,15 +6,15 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
-  ArrowRightIcon,
   CheckCircledIcon,
   ClockIcon,
   CrossCircledIcon,
   ExternalLinkIcon,
   ExclamationTriangleIcon,
-  LightningBoltIcon,
+  Link2Icon,
   PersonIcon,
   PlayIcon,
+  ReaderIcon,
   ReloadIcon,
 } from "@radix-ui/react-icons";
 
@@ -32,31 +32,28 @@ import type {
 export function PageHeader({
   title,
   subtitle,
-  kicker,
   stats,
 }: {
   title: string;
-  subtitle: string;
-  kicker: string;
+  subtitle?: string;
   stats: DashboardStats;
 }) {
   return (
     <header className="page-header">
       <div>
-        <p className="display-kicker">{kicker}</p>
         <h1>{title}</h1>
         <p className="page-subtitle">{subtitle}</p>
       </div>
       <Tooltip.Provider delayDuration={120}>
         <div className="stat-strip">
           <StatPill
-            icon={<LightningBoltIcon />}
+            icon={<ReaderIcon />}
             label="Open Tickets"
             value={stats.openTickets}
             tip="Tickets currently visible from Linear."
           />
           <StatPill
-            icon={<ArrowRightIcon />}
+            icon={<Link2Icon />}
             label="Assigned"
             value={stats.assignedTickets}
             tip="Tickets mapped to a local agent slot in this session."
@@ -118,7 +115,7 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="section-heading">
+    <div className="flex items-start justify-between gap-4 mb-4">
       <div>
         <h2>{title}</h2>
         <p className="helper-copy">{subtitle}</p>
@@ -187,28 +184,35 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function HeroPanel() {
+export function AgentCardCompact({
+  agent,
+  tickets,
+}: {
+  agent: AgentSlot;
+  tickets: TicketSummary[];
+}) {
+  const isIdle = tickets.length === 0;
+
   return (
-    <section className="hero-panel">
-      <p className="eyebrow" style={{ color: "rgba(248, 242, 235, 0.74)" }}>
-        Agent Operations
-      </p>
-      <h2>Make each run accountable to a dedicated agent lane.</h2>
-      <p>
-        Phoebe-Agent is the control room for turning Linear intake into active runs, artifact
-        review, and fast handoffs across multiple coding agents.
-      </p>
-      <div className="button-row">
-        <Link href="/tickets" className="button">
-          <ArrowRightIcon />
-          Review ticket queue
-        </Link>
-        <Link href="/agents" className="button secondary">
-          <PersonIcon />
-          Inspect agent lanes
-        </Link>
+    <article className="bento-cell bento-agent">
+      <div className="bento-agent-header">
+        <div className={`agent-dot${isIdle ? " is-idle" : ""}`} />
+        <StatusBadge status={isIdle ? "idle" : `${tickets.length} assigned`} />
       </div>
-    </section>
+      <p className="eyebrow">{agent.label}</p>
+      <h3 className="bento-agent-name">{agent.name}</h3>
+      {isIdle ? (
+        <p className="helper-copy">Open for a ticket.</p>
+      ) : (
+        <div className="bento-agent-tickets">
+          {tickets.map((ticket) => (
+            <span key={ticket.id} className="eyebrow">
+              {ticket.identifier}
+            </span>
+          ))}
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -228,21 +232,21 @@ export function TicketCard({
   return (
     <article className="ticket-card">
       <div className="ticket-layout">
-        <div className="ticket-body">
+        <div className="grid gap-3 min-w-0">
           <div>
-            <div className="ticket-meta">
-              <span className="ticket-identifier eyebrow">{ticket.identifier}</span>
+            <div className="flex flex-wrap gap-2.5">
+              <span className="font-mono eyebrow">{ticket.identifier}</span>
               <StatusBadge status={ticket.state} />
             </div>
             <h3 className="ticket-card-title">{ticket.title}</h3>
-            <div className="card-meta">
+            <div className="flex flex-wrap gap-2.5">
               <span className="metadata-copy">Linear assignee: {ticket.assignee ?? "Unassigned"}</span>
               <span className="metadata-copy">
-                Ticket ID: <span className="mono">{ticket.id}</span>
+                Ticket ID: <span className="font-mono">{ticket.id}</span>
               </span>
             </div>
           </div>
-          <div className="field-row">
+          <div className="flex flex-wrap gap-2.5">
             <div style={{ minWidth: 220 }}>
               <label className="field-label" htmlFor={`assign-${ticket.id}`}>
                 Assign agent
@@ -264,7 +268,7 @@ export function TicketCard({
             </div>
           </div>
         </div>
-        <div className="inline-actions">
+        <div className="flex flex-wrap gap-2.5">
           {ticket.activeRunId ? (
             <Link href={`/runs/${ticket.activeRunId}`} className="button secondary">
               <ExternalLinkIcon />
@@ -312,7 +316,7 @@ function LaunchRunDialog({
           <Dialog.Description asChild>
             <p>{title}</p>
           </Dialog.Description>
-          <div className="button-row">
+          <div className="flex flex-wrap gap-2.5">
             <Dialog.Close asChild>
               <button type="button" className="button secondary">
                 Close
@@ -343,7 +347,7 @@ export function AgentCard({
   return (
     <article className="agent-card">
       <div className="agent-card-header">
-        <div className="agent-body">
+        <div className="grid gap-3 min-w-0">
           <div className={`agent-dot${isIdle ? " is-idle" : ""}`} />
           <div>
             <p className="eyebrow" style={{ marginBottom: 6 }}>
@@ -361,7 +365,7 @@ export function AgentCard({
           copy="This lane is open for another Linear ticket."
         />
       ) : (
-        <div className="list-stack">
+        <div className="grid gap-3">
           {tickets.map((ticket) => (
             <div key={ticket.id} className="activity-row">
               <strong>{ticket.identifier}</strong>
@@ -385,17 +389,17 @@ export function RunsList({ runs }: { runs: RunListItem[] }) {
   }
 
   return (
-    <div className="list-stack">
+    <div className="grid gap-3">
       {runs.map((run) => (
         <article key={run.runId} className="run-card">
           <div className="run-layout">
-            <div className="run-body">
-              <div className="run-meta">
+            <div className="grid gap-3 min-w-0">
+              <div className="flex flex-wrap gap-2.5">
                 <span className="eyebrow">{run.ticketIdentifier}</span>
                 <StatusBadge status={run.status} />
               </div>
               <h3 className="run-card-title">{run.ticketTitle}</h3>
-              <div className="card-meta">
+              <div className="flex flex-wrap gap-2.5">
                 <span className="metadata-copy">Stage: {run.stage}</span>
                 <span className="metadata-copy">Updated: {formatRelativeTimestamp(run.updatedAt)}</span>
               </div>
@@ -435,7 +439,7 @@ export function TicketsTable({
       {tickets.map((ticket) => (
         <div key={ticket.id} className="table-row">
           <div>
-            <div className="ticket-identifier eyebrow">{ticket.identifier}</div>
+            <div className="font-mono eyebrow">{ticket.identifier}</div>
             <strong>{ticket.title}</strong>
           </div>
           <StatusBadge status={ticket.state} />
@@ -452,7 +456,7 @@ export function TicketsTable({
             <option value="agent-3">Agent 3</option>
             <option value="agent-4">Agent 4</option>
           </select>
-          <div className="inline-actions">
+          <div className="flex flex-wrap gap-2.5">
             {ticket.activeRunId ? (
               <Link href={`/runs/${ticket.activeRunId}`} className="button secondary">
                 View run
@@ -490,7 +494,7 @@ export function RunDetailTabs({
   ];
 
   return (
-    <Tabs.Root className="tabs-root" defaultValue="timeline">
+    <Tabs.Root className="grid gap-4" defaultValue="timeline">
       <Tabs.List className="tabs-list" aria-label="Run detail sections">
         <Tabs.Trigger className="tabs-trigger" value="timeline">
           Timeline
@@ -514,11 +518,11 @@ export function RunDetailTabs({
               copy="The run detail route is ready, but this run has not exposed event data yet."
             />
           ) : (
-            <div className="list-stack">
+            <div className="grid gap-3">
               {events.map((event) => (
                 <article key={`${event.ts}-${event.type}`} className="timeline-row">
-                  <div className="ticket-meta">
-                    <span className="mono">{formatRelativeTimestamp(event.ts)}</span>
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="font-mono">{formatRelativeTimestamp(event.ts)}</span>
                     <StatusBadge status={event.type} />
                   </div>
                   <strong>{event.message}</strong>
@@ -531,7 +535,7 @@ export function RunDetailTabs({
       <Tabs.Content value="summary">
         <section className="panel">
           <SectionHeading title="Run summary" subtitle="Current status and GitHub handoff details." />
-          <div className="list-stack">
+          <div className="grid gap-3">
             <div className="activity-row">
               <strong>Current stage</strong>
               <p className="helper-copy">{run.stage}</p>
@@ -554,7 +558,7 @@ export function RunDetailTabs({
       <Tabs.Content value="artifacts">
         <section className="panel">
           <SectionHeading title="Artifacts" subtitle="Flat outputs expected in the local run folder." />
-          <ul className="artifact-list">
+          <ul className="grid gap-2.5 p-0 m-0 list-none">
             {artifacts.map((artifact) => (
               <li key={artifact}>
                 <span>{artifact}</span>
@@ -580,7 +584,7 @@ export function RunControls({
   onCreatePr: () => void;
 }) {
   return (
-    <div className="button-row">
+    <div className="flex flex-wrap gap-2.5">
       <button type="button" className="button secondary" onClick={onRetry} disabled={busy}>
         <ReloadIcon />
         Retry

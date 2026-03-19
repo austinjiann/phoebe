@@ -4,10 +4,9 @@ import Link from "next/link";
 
 import { useAgentAssignments } from "./AgentAssignmentsProvider";
 import {
-  AgentCard,
+  AgentCardCompact,
   EmptyState,
   ErrorState,
-  HeroPanel,
   LoadingState,
   PageHeader,
   RunsList,
@@ -38,45 +37,45 @@ export function DashboardPageClient() {
   return (
     <>
       <PageHeader
-        kicker="Welcome back"
-        title="Coordinate your agent fleet"
-        subtitle="Operate Linear intake, assignment, and active run review from one shared dashboard."
+        title="Monitor Lue Agent"
+        subtitle="Monitor the agents working on linear tickets."
         stats={stats}
       />
-      <div className="surface-grid columns-2">
-        <HeroPanel />
-        <section className="panel">
-          <SectionHeading
-            title="Agent lane snapshot"
-            subtitle="A quick read on who is busy before you launch another run."
-            action={
-              <Link href="/agents" className="button secondary">
-                View all agents
-              </Link>
-            }
-          />
-          <div className="list-stack">
-            {AGENT_SLOTS.slice(0, 3).map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                tickets={tickets.filter((ticket) => assignments[ticket.id] === agent.id)}
-              />
-            ))}
+
+      {/* Bento grid */}
+      <div className="bento-grid">
+        {/* Quick actions */}
+        <section className="bento-cell bento-cta">
+          <h2>Control room</h2>
+          <p className="helper-copy">
+            Turn Linear intake into active runs and fast handoffs across agents.
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            <Link href="/tickets" className="button">
+              Review tickets
+            </Link>
+            <Link href="/agents" className="button secondary">
+              Agent lanes
+            </Link>
           </div>
         </section>
-      </div>
-      <div className="surface-grid columns-2">
-        <section className="panel">
-          <SectionHeading
-            title="Priority ticket queue"
-            subtitle="The first Linear tickets visible to the frontend."
-            action={
-              <Link href="/tickets" className="button secondary">
-                Open ticket board
-              </Link>
-            }
+
+        {/* Agent lanes — compact */}
+        {AGENT_SLOTS.slice(0, 4).map((agent) => (
+          <AgentCardCompact
+            key={agent.id}
+            agent={agent}
+            tickets={tickets.filter((ticket) => assignments[ticket.id] === agent.id)}
           />
+        ))}
+
+        {/* Tickets */}
+        <section className="bento-cell bento-content-cell bento-tickets">
+          <Link href="/tickets" className="button secondary bento-top-action">
+            Open board
+          </Link>
+          <h2>Priority tickets</h2>
+          <p className="helper-copy">First Linear tickets visible to the frontend.</p>
           {isLoading ? <LoadingState label="Loading tickets" /> : null}
           {error ? <ErrorState title="Ticket load failed" copy={error} /> : null}
           {!isLoading && !error && visibleTickets.length === 0 ? (
@@ -86,7 +85,7 @@ export function DashboardPageClient() {
             />
           ) : null}
           {!isLoading && !error && visibleTickets.length > 0 ? (
-            <div className="list-stack">
+            <div className="grid gap-3">
               {visibleTickets.map((ticket) => (
                 <TicketCard
                   key={ticket.id}
@@ -101,16 +100,14 @@ export function DashboardPageClient() {
             </div>
           ) : null}
         </section>
-        <section className="panel">
-          <SectionHeading
-            title="Run visibility"
-            subtitle="Recent active runs exposed to the dashboard."
-            action={
-              <Link href="/runs" className="button secondary">
-                Open runs
-              </Link>
-            }
-          />
+
+        {/* Runs */}
+        <section className="bento-cell bento-content-cell bento-runs">
+          <Link href="/runs" className="button secondary bento-top-action">
+            Open runs
+          </Link>
+          <h2>Active runs</h2>
+          <p className="helper-copy">Recent runs exposed to the dashboard.</p>
           <RunsList runs={visibleRuns} />
         </section>
       </div>
