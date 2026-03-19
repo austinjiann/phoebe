@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import type { Hono } from "hono";
 
 import { fetchLinearIssueByTicketId } from "../services/linear/client";
-import { cancelSandboxRun, launchSandbox } from "../services/modal/launchSandbox";
+import { cancelSandboxRun, launchSandbox, triggerVisualVerificationForRun } from "../services/modal/launchSandbox";
 import { appendEvent, type RunEvent } from "../services/runs/appendEvent";
 import { createRun } from "../services/runs/createRun";
 import { getRun } from "../services/runs/getRun";
@@ -163,6 +163,41 @@ export function registerRunRoutes(app: Hono) {
       });
 
       return c.json(canceledRun);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return c.json({ error: error.message }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/runs/:runId/screenshots", async (c) => {
+    const runId = c.req.param("runId");
+
+    try {
+      const existingRun = await getRun(runId);
+
+      if (!existingRun.ticket) {
+        return c.json({ error: `Run ${runId} does not have a ticket snapshot` }, 400);
+      }
+
+      if (!existingRun.status.branchName) {
+        return c.json({ error: "No published branch is recorded for this run" }, 400);
+      }
+
+      void triggerVisualVerificationForRun(runId).catch(async (error) => {
+        const message = error instanceof Error ? error.message : "Visual verification failed";
+        await appendEvent(runId, {
+          ts: new Date().toISOString(),
+          type: "screenshots.failed",
+          message,
+        }).catch(() => undefined);
+        await updateRun(runId, {
+          error: message,
+        }).catch(() => undefined);
+      });
+
+      return c.json({ runId, status: "started" }, 202);
     } catch (error) {
       if (error instanceof Error && error.message.includes("not found")) {
         return c.json({ error: error.message }, 404);

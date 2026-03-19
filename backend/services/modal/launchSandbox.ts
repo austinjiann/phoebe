@@ -666,6 +666,73 @@ async function runModalExecutor(input: LaunchSandboxInput): Promise<void> {
   });
 }
 
+export async function triggerVisualVerificationForRun(runId: string): Promise<void> {
+  const run = await getRun(runId);
+
+  if (!run.ticket) {
+    throw new Error(`Run ${runId} does not have a ticket snapshot`);
+  }
+
+  if (!run.status.branchName) {
+    throw new Error("No published branch is recorded for this run");
+  }
+
+  const input: LaunchSandboxInput = {
+    ticketId: run.ticket.identifier,
+    runId,
+    ticketTitle: run.ticket.title,
+    ticketDescription: run.ticket.description,
+  };
+
+  await appendEvent(runId, {
+    ts: new Date().toISOString(),
+    type: "screenshots.started",
+    message: "Starting visual verification for UI changes",
+  });
+
+  const screenshotResult = await runVisualVerification(input, run.status.branchName);
+
+  if (screenshotResult?.skipped) {
+    await appendEvent(runId, {
+      ts: new Date().toISOString(),
+      type: "screenshots.skipped",
+      message: screenshotResult.summary || "Visual verification was skipped",
+    });
+    return;
+  }
+
+  if (screenshotResult?.ok && screenshotResult.screenshots.length > 0) {
+    await writeScreenshotArtifacts(run.ticket.identifier, runId, screenshotResult.screenshots);
+    await appendEvent(runId, {
+      ts: new Date().toISOString(),
+      type: "screenshots.completed",
+      message: `Captured ${screenshotResult.screenshots.length} screenshots`,
+    });
+
+    if (run.status.branchName) {
+      await finalizeDraftPr({
+        ticketId: run.ticket.identifier,
+        runId,
+      });
+    }
+
+    await updateRun(runId, {
+      error: null,
+    });
+    return;
+  }
+
+  const screenshotError = screenshotResult?.error?.trim() || "Visual verification failed";
+  await appendEvent(runId, {
+    ts: new Date().toISOString(),
+    type: "screenshots.failed",
+    message: screenshotError,
+  });
+  await updateRun(runId, {
+    error: screenshotError,
+  });
+}
+
 export async function cancelSandboxRun(runId: string): Promise<boolean> {
   const activeProcess = activeModalProcesses.get(runId);
 

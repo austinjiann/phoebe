@@ -426,8 +426,8 @@ You are working on ticket {ticket_id}: {ticket_title}
 """.strip()
 
 
-def _build_branch_name(ticket_id: str) -> str:
-    return f"phoebe/{ticket_id}"
+def _build_branch_name(ticket_id: str, run_id: str) -> str:
+    return f"phoebe/{ticket_id}-{run_id}"
 
 
 def run_opencode_job(
@@ -569,7 +569,7 @@ def run_opencode_job(
     )
 
     changed_files = _parse_changed_files(status_stdout, diff_numstat_stdout)
-    branch_name = _build_branch_name(ticket_id) if changed_files else None
+    branch_name = _build_branch_name(ticket_id, run_id) if changed_files else None
     branch_published = False
     branch_error = None
 
