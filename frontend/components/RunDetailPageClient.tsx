@@ -70,7 +70,6 @@ export function RunDetailPageClient({ runId }: { runId: string }) {
             <div style={{ marginTop: 18 }}>
               <RunControls
                 busy={isPending}
-                canCreatePr={Boolean(run.status.branchName)}
                 onRetry={() =>
                   runAction(async () => {
                     const nextRun = await retryRun(run.status.runId);
@@ -91,23 +90,38 @@ export function RunDetailPageClient({ runId }: { runId: string }) {
                     setMessage(`Run ${run.status.runId} canceled.`);
                   })
                 }
-                onCreatePr={() =>
-                  runAction(async () => {
-                    const result = await createDraftPr(run.status.ticketId, run.status.runId);
-                    setData({
-                      ...run,
-                      status: {
-                        ...run.status,
-                        prUrl: result.prUrl,
-                        branchName: result.branchName,
-                      },
-                    });
-                    setMessage(
-                      result.prUrl
-                        ? `Draft PR created: ${result.prUrl}`
-                        : "Draft PR request submitted, but no URL was returned yet.",
-                    );
-                  })
+                onRetryPr={
+                  run.status.branchName && !run.status.prUrl
+                    ? () =>
+                        runAction(async () => {
+                          const result = await createDraftPr(run.status.ticketId, run.status.runId);
+                          setData({
+                            ...run,
+                            status: {
+                              ...run.status,
+                              branchName: result.branchName,
+                              prUrl: result.prUrl,
+                              error: null,
+                            },
+                            events: [
+                              ...run.events,
+                              {
+                                ts: new Date().toISOString(),
+                                type: result.status === "created" ? "pr.created" : "pr.reused",
+                                message:
+                                  result.prUrl
+                                    ? `Draft PR ready: ${result.prUrl}`
+                                    : "Draft PR request completed",
+                              },
+                            ],
+                          });
+                          setMessage(
+                            result.prUrl
+                              ? `Draft PR ready: ${result.prUrl}`
+                              : "Draft PR request completed.",
+                          );
+                        })
+                    : null
                 }
               />
             </div>

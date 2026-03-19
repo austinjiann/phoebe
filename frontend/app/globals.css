@@ -212,7 +212,7 @@ button {
 /* ── Bento grid ── */
 .bento-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   grid-template-rows: auto auto;
   gap: 1rem;
 }
@@ -244,6 +244,7 @@ button {
 
 /* Agents — 2x2 grid on the right of CTA */
 .bento-agent {
+  grid-column: span 2;
   display: grid;
   gap: 0.375rem;
   align-content: start;
@@ -271,11 +272,11 @@ button {
 
 /* Tickets + Runs split the bottom row evenly */
 .bento-tickets {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 .bento-runs {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 .bento-content-cell {
@@ -634,6 +635,10 @@ button {
   .bento-cta {
     grid-column: span 2;
     grid-row: auto;
+  }
+
+  .bento-agent {
+    grid-column: span 1;
   }
 
   .bento-tickets,

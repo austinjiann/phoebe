@@ -163,22 +163,18 @@ export function LoadingState({ label }: { label: string }) {
 export function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   const icon =
-    normalized === "completed" ? (
+    normalized.endsWith("completed") || normalized.endsWith("cloned") || normalized.endsWith("passed") ? (
       <CheckCircledIcon />
-    ) : normalized === "failed" || normalized === "canceled" ? (
+    ) : normalized.endsWith("failed") || normalized === "canceled" ? (
       <CrossCircledIcon />
-    ) : normalized === "running" ? (
+    ) : normalized.endsWith("running") || normalized.endsWith("started") || normalized.endsWith("cloning") ? (
       <PlayIcon />
-    ) : normalized === "queued" ? (
-      <ClockIcon />
-    ) : normalized === "idle" || normalized === "canceled" ? (
+    ) : normalized === "queued" || normalized === "idle" || normalized === "created" || normalized.endsWith("ready") ? (
       <ClockIcon />
     ) : normalized.endsWith("assigned") ? (
       <PersonIcon />
-    ) : normalized === "created" ? (
-      <ClockIcon />
     ) : (
-      <ExclamationTriangleIcon />
+      <PlayIcon />
     );
 
   return (
@@ -202,17 +198,11 @@ function getAgentState(tickets: TicketSummary[]): {
   if (statuses.includes("running") || statuses.includes("created")) {
     return { dotClass: "agent-dot is-running", statusText: "running" };
   }
-  if (statuses.includes("completed")) {
-    return { dotClass: "agent-dot is-completed", statusText: "completed" };
-  }
   if (statuses.includes("failed")) {
     return { dotClass: "agent-dot is-failed", statusText: "failed" };
   }
-  if (statuses.includes("canceled")) {
-    return { dotClass: "agent-dot is-idle", statusText: "canceled" };
-  }
 
-  return { dotClass: "agent-dot", statusText: `${tickets.length} assigned` };
+  return { dotClass: "agent-dot is-idle", statusText: `${tickets.length} assigned` };
 }
 
 export function AgentCardCompact({
@@ -545,7 +535,7 @@ export function RunDetailTabs({
             <div className="grid gap-3">
               {run.events.map((event) => (
                 <article key={`${event.ts}-${event.type}`} className="timeline-row">
-                  <div className="flex flex-wrap gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <span className="font-mono">{formatRelativeTimestamp(event.ts)}</span>
                     <StatusBadge status={event.type} />
                   </div>
@@ -598,16 +588,14 @@ export function RunDetailTabs({
 
 export function RunControls({
   busy,
-  canCreatePr,
   onRetry,
   onCancel,
-  onCreatePr,
+  onRetryPr,
 }: {
   busy: boolean;
-  canCreatePr: boolean;
   onRetry: () => void;
   onCancel: () => void;
-  onCreatePr: () => void;
+  onRetryPr?: (() => void) | null;
 }) {
   return (
     <div className="flex flex-wrap gap-2.5">
@@ -615,13 +603,15 @@ export function RunControls({
         <ReloadIcon />
         Retry
       </button>
+      {onRetryPr ? (
+        <button type="button" className="button secondary" onClick={onRetryPr} disabled={busy}>
+          <ReloadIcon />
+          Retry Draft PR
+        </button>
+      ) : null}
       <button type="button" className="button danger" onClick={onCancel} disabled={busy}>
         <CrossCircledIcon />
         Cancel
-      </button>
-      <button type="button" className="button" onClick={onCreatePr} disabled={busy || !canCreatePr}>
-        <ExternalLinkIcon />
-        Create Draft PR
       </button>
     </div>
   );
